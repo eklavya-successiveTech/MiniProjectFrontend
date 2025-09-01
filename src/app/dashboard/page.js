@@ -26,11 +26,6 @@ export default async function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Quick actions */}
-        <div className="lg:col-span-1">
-          <QuickActions />
-        </div>
-
         {/* Recent activity */}
         <div className="lg:col-span-2">
           <RecentActivity orgId={organization.id} token={token} showPagination={true}/>

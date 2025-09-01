@@ -2,6 +2,7 @@
 import { requireOrganization, getUser, getOrganization } from '@/lib/dal'
 import Sidebar from '@/components/dashboard/Sidebar'
 import TopBar from '@/components/dashboard/TopBar'
+import { ApolloWrapper } from '@/components/ApolloWrapper'
 
 export default async function DashboardLayout({ children }) {
   // This automatically handles auth and organization checks
@@ -24,7 +25,9 @@ export default async function DashboardLayout({ children }) {
         {/* Main content */}
         <main className="flex-1 overflow-y-auto bg-white">
           <div className="h-full">
+            <ApolloWrapper>
             {children}
+            </ApolloWrapper>
           </div>
         </main>
       </div>

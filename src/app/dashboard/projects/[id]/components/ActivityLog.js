@@ -83,7 +83,7 @@ export function ActivityLog({ projectId, orgId, token }) {
       }
 
       const data = await response.json()
-      
+      console.log(data)
       if (append) {
         setLogs(prev => [...prev, ...data.logs])
       } else {
