@@ -1,36 +1,136 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# Project Management System
 
-## Getting Started
+A comprehensive project and task management platform built with modern web technologies. Features organization-based multi-tenancy, role-based access control, and comprehensive audit logging.
 
-First, run the development server:
+## 🚀 Features
+
+### Authentication & Organization Management
+- **Self Registration**: Users can register and automatically create their own organization (become admin)
+- **Admin-only Invitations**: Only organization admins can invite new members via email
+- **Invite-based Registration**: New users join organizations through admin invitations
+- **Role-based Access**: Admin and Member roles with appropriate permissions
+- **Secure Authentication**: JWT-based authentication system
+
+### Project Management
+- **Create Projects**: Organize work into projects with descriptions, priorities, and due dates
+- **Project Assignment**: Assign team members to projects
+- **Status Tracking**: Track project progress (Active → Completed → Archived)
+- **Project Dashboard**: Overview of all organization projects
+
+### Task Management
+- **Task Creation**: Create detailed tasks within projects
+- **Task Assignment**: Assign tasks to specific team members
+- **Workflow Management**: Move tasks through workflow stages (To Do → In Progress → Review → Done)
+- **Priority Management**: Set task priorities (Low, Medium, High)
+- **Due Date Tracking**: Set and monitor task deadlines
+
+### Audit & Monitoring
+- **Organization-wide Audit Logs**: Track all important actions across the organization
+- **Project-specific Logs**: View audit trails for specific projects
+- **Action Tracking**: Monitor user actions, invitations, project changes, and more
+- **Comprehensive Logging**: Detailed audit trail for compliance and monitoring
+
+
+## 📋 Prerequisites
+
+- Node.js (v18 or higher)
+- npm or yarn
+- MongoDB instance (local or cloud)
+- Git
+
+## 🛠️ Installation & Setup
+
+### 1. Clone the Repositories
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+# Clone all three repositories
+git clone <https://github.com/eklavya-successiveTech/MiniProjectFrontend.git> frontend
+git clone <https://github.com/eklavya-successiveTech/MiniProjectBackend.git> backend  
+git clone <https://github.com/eklavya-successiveTech/miniProjectGQL.git> graphql
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 2. Backend Setup
 
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
+```bash
+cd backend
+npm install
+npm run dev
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### 3. GraphQL Server Setup
 
-## Learn More
+```bash
+cd graphql
+npm install
+npm run dev
+```
+### 4. Frontend Setup
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+cd frontend
+npm install
+npm run dev
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 🚦 Getting Started
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Registration Flow
 
-## Deploy on Vercel
+#### Option 1: Self Registration
+1. Visit the application homepage
+2. Click "Sign Up"
+3. Fill in your details (name, email, password)
+4. Upon successful registration, you'll automatically create and become admin of your own organization
+5. You can then invite other members to join your organization
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+#### Option 2: Invitation-based Registration (Admin Only)
+1. An organization **admin** sends you an invitation email
+2. Click the invitation link in the email
+3. Complete your registration (name, password) - email is pre-filled
+4. You'll be registered as a member of the inviting organization
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+**Note**: Only organization admins have the ability to invite new members. Regular members cannot send invitations.
+
+### Using the Platform
+
+1. **Dashboard**: View organization overview, recent projects, and audit logs
+2. **Projects**: Create, edit, and manage projects
+3. **Tasks**: Create tasks within projects, assign them, and track progress
+4. **Team**: Admins can invite new members and manage organization users
+5. **Audit Logs**: Monitor all activities across the organization or specific projects
+
+## 🔧 Available Scripts
+
+### Backend
+```bash
+npm run dev          # Start development server with hot reload
+npm run start        # Start production server
+npm run test         # Run test suite
+npm run build        # Build for production
+```
+
+### GraphQL
+```bash
+npm run dev          # Start GraphQL server with hot reload
+npm run start        # Start production GraphQL server
+npm run test         # Run test suite
+```
+
+### Frontend
+```bash
+npm run dev          # Start development server
+npm run build        # Build for production
+npm run preview      # Preview production build
+npm run test         # Run test suite
+npm run lint         # Run linting
+```
+
+## 📊 Database Schema
+
+The system uses MongoDB with the following main collections:
+- **Users**: Store user authentication and profile data
+- **Organizations**: Manage organization information
+- **Projects**: Project details and metadata
+- **Tasks**: Individual task items within projects
+- **Invites**: Manage user invitations with expiry
+- **AuditLogs**: Comprehensive activity tracking
