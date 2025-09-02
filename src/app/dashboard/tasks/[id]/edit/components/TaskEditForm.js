@@ -16,7 +16,8 @@ function formatDate(dateString) {
   return `${year}-${month}-${day} at ${hours}:${minutes}`
 }
 
-export function TaskEditForm({ task, p, token }) {
+export function TaskEditForm({ task, token, projectMembers }) {
+  console.log(projectMembers);
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
@@ -260,7 +261,7 @@ export function TaskEditForm({ task, p, token }) {
         </div>
 
         {/* Assigned To */}
-        {/* <div>
+        <div>
           <label htmlFor="assignedTo" className="block text-sm font-medium text-gray-700 mb-2">
             Assigned To
           </label>
@@ -272,13 +273,13 @@ export function TaskEditForm({ task, p, token }) {
             className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           >
             <option value="">Unassigned</option>
-            {orgUsers.map(user => (
+            {projectMembers.map(user => (
               <option key={user._id} value={user._id}>
                 {user.name} ({user.email})
               </option>
             ))}
           </select>
-        </div> */}
+        </div>
 
         {/* Action Buttons */}
         <div className="flex flex-col sm:flex-row gap-4 pt-6 border-t border-gray-200">

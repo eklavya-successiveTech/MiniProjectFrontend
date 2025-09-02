@@ -44,11 +44,27 @@ async function getOrganizationUsers(orgId, token) {
     return []
   }
 }
+async function getProjectDetails(projectId, token) {
+  try {
+    const response = await fetch(`${process.env.API_URL}/api/projects/${projectId}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    })
+    console.log(response)
+    const data = await response.json()
+    console.log(data)
+    return data.project
+  } catch (error) {
+    console.error('Error fetching project:', error)
+    return null
+  }
+}
 
 export default async function TaskEditPage({ params }) {
   const { id: taskId } = await params
   const org = await getOrganization()
-  const user = await getUser()
   
   if (!org?.id) {
     redirect('/dashboard')
@@ -56,11 +72,14 @@ export default async function TaskEditPage({ params }) {
 
   // Get token and fetch data
   const token = await verifySession()
-  
+  console.log(token)
   const [task, orgUsers] = await Promise.all([
     getTaskDetails(taskId, token),
     getOrganizationUsers(org.id, token)
   ])
+
+  const project= await getProjectDetails(task.project._id, token);
+  console.log(project)
 
   if (!task) {
     return (
@@ -101,7 +120,7 @@ export default async function TaskEditPage({ params }) {
             </div>
             <div className="flex space-x-3">
               <a
-                href={`/dashboard/projects/${task.project.id}`}
+                href={`/dashboard/projects/${task.project._id}`}
                 className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
               >
                 Cancel
@@ -117,8 +136,8 @@ export default async function TaskEditPage({ params }) {
           <div className="px-6 py-6">
             <TaskEditForm 
               task={task} 
-              orgUsers={orgUsers}
               token={token}
+              projectMembers={project.members}
             />
           </div>
         </div>
