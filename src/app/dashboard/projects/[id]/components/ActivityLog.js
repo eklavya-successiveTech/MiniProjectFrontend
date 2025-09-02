@@ -1,17 +1,220 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
+import { useQuery, useSubscription } from '@apollo/client/react'
+import { gql } from '@apollo/client'
+
+// GraphQL Queries and Subscriptions
+const GET_PROJECT_ACTIVITY = gql`
+  query GetProjectActivity(
+    $organizationId: ID!
+    $projectId: ID!
+    $token: String!
+    $page: Int
+    $limit: Int
+    $filters: ActivityFilters
+  ) {
+    projectActivity(
+      organizationId: $organizationId
+      projectId: $projectId
+      token: $token
+      page: $page
+      limit: $limit
+      filters: $filters
+    ) {
+      logs {
+        id
+        action
+        message
+        createdAt
+        performedBy {
+          id
+          name
+          email
+        }
+        details {
+          taskTitle
+          projectName
+          oldStatus
+          newStatus
+          assignedToName
+          previousAssigneeName
+        }
+      }
+      pagination {
+        page
+        limit
+        total
+        totalPages
+        hasMore
+        hasPrevious
+      }
+    }
+  }
+`
+
+const SUBSCRIBE_PROJECT_ACTIVITY = gql`
+  subscription SubscribeToProjectActivity(
+    $organizationId: ID!
+    $projectId: ID!
+    $token: String!
+  ) {
+    projectActivityUpdated(
+      organizationId: $organizationId
+      projectId: $projectId
+      token: $token
+    ) {
+      logs {
+        id
+        action
+        message
+        createdAt
+        performedBy {
+          id
+          name
+          email
+        }
+        details {
+          taskTitle
+          projectName
+          oldStatus
+          newStatus
+          assignedToName
+          previousAssigneeName
+        }
+      }
+      pagination {
+        page
+        limit
+        total
+        totalPages
+        hasMore
+        hasPrevious
+      }
+    }
+  }
+`
 
 export function ActivityLog({ projectId, orgId, token }) {
-  const [logs, setLogs] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
   const [showAll, setShowAll] = useState(false)
-  const [pagination, setPagination] = useState({
-    page: 0,
-    limit: 20,
-    total: 0,
-    totalPages: 0
+
+  // useQuery is our single source of truth for the logs
+  const { data, loading, error, refetch, fetchMore } = useQuery(GET_PROJECT_ACTIVITY, {
+    variables: {
+      organizationId: orgId,
+      projectId: projectId,
+      token: token,
+      page: 1,
+      limit: 20
+    },
+    fetchPolicy: 'cache-and-network',
   })
+
+  // Enhanced subscription with better error handling and logging
+  const { data: subscriptionData, error: subscriptionError } = useSubscription(
+    SUBSCRIBE_PROJECT_ACTIVITY,
+    {
+      variables: {
+        organizationId: orgId,
+        projectId: projectId,
+        token: token
+      },
+      onData: ({ client, data: subscriptionData }) => {
+        console.log("🔔 Subscription data received:", subscriptionData);
+        
+        // Check if subscription data exists and has the expected structure
+        if (!subscriptionData?.data?.projectActivityUpdated?.logs) {
+          console.warn("❌ Subscription data missing or malformed:", subscriptionData);
+          return;
+        }
+
+        const newActivityData = subscriptionData.data.projectActivityUpdated;
+        const newLogs = newActivityData.logs;
+        
+        console.log(`📊 Processing ${newLogs.length} new logs from subscription`);
+        
+        const queryVariables = {
+          organizationId: orgId,
+          projectId: projectId,
+          token: token,
+          page: 1,
+          limit: 20
+        };
+
+        try {
+          // Read the current data from the cache for our specific query
+          const prevData = client.readQuery({
+            query: GET_PROJECT_ACTIVITY,
+            variables: queryVariables,
+          });
+
+          if (!prevData?.projectActivity?.logs) {
+            console.warn("⚠️ No previous data in cache, skipping update");
+            return;
+          }
+
+          const prevLogs = prevData.projectActivity.logs;
+          const existingIds = new Set(prevLogs.map(log => log.id));
+          
+          // Filter out logs that already exist in the cache
+          const uniqueNewLogs = newLogs.filter(log => {
+            const isUnique = !existingIds.has(log.id);
+            if (!isUnique) {
+              console.log(`🔄 Log ${log.id} already exists in cache, skipping`);
+            }
+            return isUnique;
+          });
+
+          console.log(`✨ Adding ${uniqueNewLogs.length} unique new logs to cache`);
+
+          // If all new logs are already in the cache, do nothing.
+          if (uniqueNewLogs.length === 0) {
+            console.log("ℹ️ No new unique logs to add to cache");
+            return;
+          }
+
+          // Write the new, combined data back to the cache
+          const updatedData = {
+            projectActivity: {
+              ...prevData.projectActivity,
+              logs: [...uniqueNewLogs, ...prevLogs].sort((a, b) => 
+                new Date(b.createdAt) - new Date(a.createdAt)
+              ), // Sort by newest first
+              pagination: {
+                ...prevData.projectActivity.pagination,
+                total: prevData.projectActivity.pagination.total + uniqueNewLogs.length,
+              },
+            },
+          };
+
+          client.writeQuery({
+            query: GET_PROJECT_ACTIVITY,
+            variables: queryVariables,
+            data: updatedData,
+          });
+
+          console.log("✅ Cache updated successfully with new activity logs");
+
+        } catch (e) {
+          // This can happen if the query is not in the cache yet
+          console.warn("⚠️ Could not update cache from subscription:", e.message);
+          console.log("🔄 Refetching data instead...");
+          refetch(); // Fallback: refetch the data
+        }
+      },
+      onError: (error) => {
+        console.error("❌ Subscription error:", error);
+      },
+      onComplete: () => {
+        console.log("🔚 Subscription completed");
+      },
+      shouldResubscribe: true, // Auto-resubscribe on connection drops
+    }
+  );
+
+  // Log subscription errors
+  if (subscriptionError) {
+    console.error("❌ Subscription Error:", subscriptionError);
+  }
 
   const getActionIcon = (action) => {
     const iconMap = {
@@ -26,7 +229,6 @@ export function ActivityLog({ projectId, orgId, token }) {
       'FILE_UPLOADED': '📎',
       'default': '📌'
     }
-    
     return iconMap[action] || iconMap.default
   }
 
@@ -43,86 +245,52 @@ export function ActivityLog({ projectId, orgId, token }) {
     const now = new Date()
     const logDate = new Date(date)
     const diffInMinutes = Math.floor((now - logDate) / (1000 * 60))
-
     if (diffInMinutes < 1) return 'Just now'
     if (diffInMinutes < 60) return `${diffInMinutes}m ago`
-    
     const diffInHours = Math.floor(diffInMinutes / 60)
     if (diffInHours < 24) return `${diffInHours}h ago`
-    
     const diffInDays = Math.floor(diffInHours / 24)
     if (diffInDays === 1) return '1d ago'
     if (diffInDays < 7) return `${diffInDays}d ago`
-    if (diffInDays < 30) return `${Math.floor(diffInDays / 7)}w ago`
-    
-    return logDate.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric'
-    })
+    return logDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
   }
-
-  // Single function to handle all log fetching
-  const fetchLogs = async (page = 0, append = false) => {
-    setLoading(true)
-    setError(null)
-    
-    try {
-      // Use your existing project activity endpoint
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/${orgId}/projects/${projectId}/activity?page=${page}&limit=${pagination.limit || 20}`,
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-        }
-      )
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch project activity')
-      }
-
-      const data = await response.json()
-      console.log(data)
-      if (append) {
-        setLogs(prev => [...prev, ...data.logs])
-      } else {
-        setLogs(data.logs)
-      }
-
-      setPagination(data.pagination)
-
-    } catch (err) {
-      console.error('Failed to fetch project activity:', err)
-      setError(err.message)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  // Initial load
-  useEffect(() => {
-    fetchLogs(0)
-  }, [])
 
   const handleShowAll = () => {
-    if (!showAll && logs.length <= 5) {
-      fetchLogs(1, true) // Load more and append
-    }
     setShowAll(!showAll)
   }
 
   const loadMoreLogs = () => {
-    if (pagination.page < pagination.totalPages - 1) {
-      fetchLogs(pagination.page + 1, true)
+    if (data?.projectActivity?.pagination?.hasMore) {
+      fetchMore({
+        variables: {
+          page: data.projectActivity.pagination.page + 1,
+        },
+        updateQuery: (prev, { fetchMoreResult }) => {
+          if (!fetchMoreResult?.projectActivity?.logs) return prev;
+          return {
+            ...prev,
+            projectActivity: {
+              ...fetchMoreResult.projectActivity,
+              logs: [
+                ...prev.projectActivity.logs,
+                ...fetchMoreResult.projectActivity.logs
+              ]
+            }
+          }
+        }
+      })
     }
   }
 
   const refreshLogs = () => {
-    fetchLogs(0) // Reset and fetch from beginning
+    console.log("🔄 Manually refreshing logs...");
+    refetch()
   }
 
-  const displayLogs = showAll ? logs : logs.slice(0, 5)
+  // All logs and pagination data are now read directly from the 'data' object from useQuery
+  const allLogs = data?.projectActivity?.logs || []
+  const pagination = data?.projectActivity?.pagination || {}
+  const displayLogs = showAll ? allLogs : allLogs.slice(0, 5)
 
   return (
     <div className="bg-white rounded-lg shadow">
@@ -131,28 +299,36 @@ export function ActivityLog({ projectId, orgId, token }) {
           <h3 className="text-lg font-medium text-gray-900">Project Activity</h3>
           <div className="flex items-center space-x-2">
             {error && (
-              <span className="text-xs text-red-500" title={error}>
-                ⚠️
+              <span className="text-xs text-red-500" title={error.message}>
+                ⚠️ Query Error
               </span>
             )}
+            {subscriptionError && (
+              <span className="text-xs text-orange-500" title={subscriptionError.message}>
+                📡 Subscription Error
+              </span>
+            )}
+            <div className="flex items-center space-x-1">
+              
+            </div>
             <button
               onClick={refreshLogs}
               disabled={loading}
               className="text-xs text-indigo-600 hover:text-indigo-500 disabled:opacity-50"
             >
-              {loading ? 'Loading...' : 'Refresh'}
+              {loading && !data ? 'Loading...' : 'Refresh'}
             </button>
           </div>
         </div>
         {showAll && pagination.total > 0 && (
           <div className="mt-2 text-xs text-gray-500">
-            Showing {logs.length} of {pagination.total} activities
+            Showing {allLogs.length} of {pagination.total} activities
           </div>
         )}
       </div>
 
       <div className="p-4">
-        {displayLogs.length === 0 ? (
+        {allLogs.length === 0 && !loading ? (
           <div className="text-center py-8">
             <div className="text-4xl mb-2">📋</div>
             <p className="text-gray-500 text-sm">No project activity yet</p>
@@ -194,19 +370,16 @@ export function ActivityLog({ projectId, orgId, token }) {
                               Status: {log.details.oldStatus} → {log.details.newStatus}
                             </div>
                           )}
-                          
                           {log.details?.assignedToName && (
                             <div>
                               Assigned to: {log.details.assignedToName}
                             </div>
                           )}
-                          
                           {log.details?.previousAssigneeName && log.details?.assignedToName && (
                             <div>
                               Reassigned: {log.details.previousAssigneeName} → {log.details.assignedToName}
                             </div>
                           )}
-
                           {log.performedBy?.email && (
                             <div>
                               by {log.performedBy.email}
@@ -234,7 +407,7 @@ export function ActivityLog({ projectId, orgId, token }) {
               </div>
             ))}
 
-            {showAll && pagination.page < pagination.totalPages - 1 && (
+            {showAll && pagination.hasMore && (
               <div className="text-center pt-4 border-t border-gray-100">
                 <button
                   onClick={loadMoreLogs}
@@ -248,14 +421,20 @@ export function ActivityLog({ projectId, orgId, token }) {
           </div>
         )}
 
-        {logs.length > 5 && (
+        {allLogs.length > 5 && (
           <div className="text-center pt-4 border-t border-gray-100 mt-4">
             <button
               onClick={handleShowAll}
               className="text-sm text-indigo-600 hover:text-indigo-500 font-medium"
             >
-              {showAll ? 'Show less' : `View all activity (${pagination.total || logs.length})`}
+              {showAll ? 'Show less' : `View all activity (${pagination.total || allLogs.length})`}
             </button>
+          </div>
+        )}
+
+        {loading && allLogs.length === 0 && (
+          <div className="text-center py-4">
+            <div className="text-sm text-gray-500">Loading activity...</div>
           </div>
         )}
       </div>
